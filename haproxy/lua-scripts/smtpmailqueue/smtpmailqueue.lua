@@ -55,11 +55,15 @@ function Smtpmailqueue:sendmail_waitfor(code)
 	end
 	local itsok = false
 	local receive
+	local errmsg
 	self:Info("######## MAIL WAIT for result status: "..code)
 	repeat
-		receive = self.mailconnection:receive("*l")
+		receive, errmsg = self.mailconnection:receive("*l")
 		if receive == nil then
-			self:Info("SMTP Received: NIL")
+			self:Info("SMTP Received: NIL errmsg:"..errmsg)
+			mailitem.status = "Received NIL errmsg: "..errmsg..")"
+			mailitem.processing = false
+			mailitem.retries = mailitem.retries - 1
 			return -2
 		end
 		self:Info("SMTP Received:"..receive)
@@ -117,7 +121,7 @@ function Smtpmailqueue:sendmailitem(mailitem)
 	local mailconnection = core.tcp()
 	mailconnection:settimeout(1)
 	self.mailconnection = mailconnection
-	ret = mailconnection:connect(self.mailserver, self.mailserverport)
+	local ret = mailconnection:connect(self.mailserver, self.mailserverport)
 	if ret ~= 1 then
 		mailitem.status = "connecting failed to "..self.mailserver..":".. self.mailserverport
 		self:Info("Connect failed")
@@ -141,6 +145,7 @@ function Smtpmailqueue:sendmailitem(mailitem)
 		"To: "..mailitem.to.."\r\n" ..
 		--"Date: Mon, 21 May 2018 01:03 (CET)\r\n" ..
 		"Subject: "..mailitem.subject.."\r\n" ..
+		"Content-Type: text/html\r\n" ..
 		"\r\n" ..
 		mailitem.content .. "\r\n" ..
 		"\r\n" ..
@@ -201,7 +206,7 @@ function Smtpmailqueue:processqueue()
 	repeat
 		self.status = "sleeping"
 		core.sleep(self.interval)
-		self:Info("Mails in queue: " .. #self.mailqueue)
+		--self:Info("Mails in queue: " .. #self.mailqueue)
 		local c = 0
 		local unsend = 0
 		for key, mail in pairs(self.mailqueue) do
@@ -210,6 +215,6 @@ function Smtpmailqueue:processqueue()
 			end
 			c = c + 1
 		end
-		self:Info("Smtpmailqueue.processqueue done")
+		--self:Info("Smtpmailqueue.processqueue done")
 	until false
 end
